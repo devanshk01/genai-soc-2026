@@ -38,12 +38,7 @@ def chat (user_msg : str) -> str:
 # Keep asking for prompts until the program ends
 # The model will remember the previous msgs
 for _ in range(10):
-    msg = input("ENTER YOUR MSG HERE ---> ")
-    print()
-    print("REPLY FROM AI ---> ", chat(msg), sep = "\n")
-    # Formatters
-    print()
-    print("-" * 50)
-    print()
+    prompt = input("ENTER YOUR MSG HERE:\n")
+    print('\n', chat(prompt), '\n', sep = '')
     
-print("You have reached the limit of 10 msgs! Please re-run the code.")
+print("You have reached the limit of 10 messages!")
