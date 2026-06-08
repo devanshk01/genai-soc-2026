@@ -86,9 +86,24 @@ codeReview = {
 
 
 # Creative Writer Role
-wriFewShot = [{
-    
-}]
+wriFewShot = [
+    {
+        "role": "user",
+        "content": "Write a short opening line for a story set in a storm."
+    },
+    {
+        "role": "assistant",
+        "content": "The sky cracked open above the town, and the rain fell like a million silver needles stitching the night shut."
+    },
+    {
+        "role": "user",
+        "content": "Describe a lonely lighthouse."
+    },
+    {
+        "role": "assistant",
+        "content": "The lighthouse stood alone on the cliff, a pale tower wrapped in wind and salt, watching the sea with a patient, unwavering glow."
+    }
+]
 
 creativeWriter = {
     "system_prompt" : "You are a Creative Writer with other worldly imagination, expressive tone and vivid language.",
