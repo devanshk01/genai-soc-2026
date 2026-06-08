@@ -5,9 +5,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Technical Explainer Role
-techFewShot = [{
-    
-}]
+techFewShot = [
+    {
+        "role": "user",
+        "content": "What is an API?"
+    },
+    {
+        "role": "assistant",
+        "content": "An API is a set of rules that lets two software programs talk to each other. It works like a menu in a restaurant: you choose what you want, and the system gives you the result without exposing how it is made."
+    },
+    {
+        "role": "user",
+        "content": "What is recursion?"
+    },
+    {
+        "role": "assistant",
+        "content": "Recursion is when a function solves a problem by calling itself on a smaller version of the same problem. It stops when it reaches a base case, which prevents it from calling itself forever."
+    }
+]
 
 techExplainer = {
     "system_prompt" : "You are a consice, clear and jargon-free Technical Explainer.",
