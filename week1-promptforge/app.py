@@ -59,9 +59,24 @@ debCoach = {
 
 
 # Code Reviewer Role
-codeFewShot = [{
-    
-}]
+codeFewShot = [
+    {
+        "role": "user",
+        "content": "Review this code: `def add(a, b): return a + b`"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n  \"issues\": [],\n  \"suggestions\": [\"Add a short docstring if this function is part of a larger codebase.\"],\n  \"severity\": \"low\"\n}"
+    },
+    {
+        "role": "user",
+        "content": "Review this code: `for i in range(len(items)): print(items[i])`"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n  \"issues\": [\"Uses index-based iteration when direct iteration would be simpler.\"],\n  \"suggestions\": [\"Use `for item in items:` to make the code cleaner and easier to read.\"],\n  \"severity\": \"low\"\n}"
+    }
+]
 
 codeReview = {
     "system_prompt" : "You are a precise Code Reviewer with strict JSON output formatter, detecting issues, providing suggestions and rating the severity.",
