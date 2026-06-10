@@ -119,3 +119,27 @@ personas = {
     "Code Reviewer" : codeReview,
     "Creative Writer" : creativeWriter 
 }
+
+
+# Few Shot Injector function: Appends system prompt for a persona and
+# few shot examples with the user msg
+def fewShotInjector(persona, user_msg):
+    conversation = []
+    
+    # Add the system prompt
+    conversation.append({
+        "role" : "system",
+        "content" : persona["system_prompt"]
+    })
+    
+    fewShots = persona["few_shot_example"]
+    
+    for fewShot in fewShots:
+        conversation.append(fewShot.copy())
+        
+    conversation.append({
+        "role" : "user",
+        "content" : user_msg
+    })
+    
+    return conversation
