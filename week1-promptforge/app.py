@@ -1,5 +1,6 @@
 from groq import Groq
 import os
+import json
 from dotenv import load_dotenv
 import gradio as gr
 
@@ -122,6 +123,15 @@ personas = {
     "Creative Writer" : creativeWriter 
 }
 
+# System prompt builder: adds extra JSON instructions for Code Reviewer mode
+def buildSystemPrompt(persona):
+    systemPrompt = persona["system_prompt"]
+    
+    if persona["output_format"] == "json":
+        systemPrompt += " Return only valid JSON with these keys: issues, suggestions, severity. Do not add markdown, code fences or extra explanation."
+    
+    return systemPrompt
+
 # History normalizer: converts Gradio chat history into role/content messages
 def normalizeHistory(history):
     normalizedHistory = []
@@ -164,7 +174,7 @@ def fewShotInjector(persona, user_msg, history):
     # Add the system prompt
     conversation.append({
         "role" : "system",
-        "content" : persona["system_prompt"]
+        "content" : buildSystemPrompt(persona)
     })
     
     # Add the few-shot examples
@@ -184,6 +194,51 @@ def fewShotInjector(persona, user_msg, history):
     })
     
     return conversation
+
+def formatList(items):
+    if isinstance(items, list):
+        if not items:
+            return "- None"
+        
+        return "\n".join(f"- {item}" for item in items)
+    
+    if not items:
+        return "- None"
+    
+    return f"- {items}"
+
+def formatCodeReview(reviewData):
+    issues = formatList(reviewData.get("issues", []))
+    suggestions = formatList(reviewData.get("suggestions", []))
+    severity = reviewData.get("severity", "unknown")
+    
+    return f"""### Code Review
+
+**Severity:** {severity}
+
+**Issues**
+{issues}
+
+**Suggestions**
+{suggestions}"""
+
+def parseCodeReview(rawText):
+    cleanedText = rawText.strip()
+    
+    if cleanedText.startswith("```json"):
+        cleanedText = cleanedText[7:]
+    elif cleanedText.startswith("```"):
+        cleanedText = cleanedText[3:]
+    
+    if cleanedText.endswith("```"):
+        cleanedText = cleanedText[:-3]
+    
+    cleanedText = cleanedText.strip()
+    
+    try:
+        return formatCodeReview(json.loads(cleanedText))
+    except json.JSONDecodeError:
+        return f"Warning: Could not parse JSON response.\n\n```json\n{rawText}\n```"
 
 def generator(user_msg, history, persona_name, temperature):
     history = normalizeHistory(history)
@@ -214,9 +269,15 @@ def generator(user_msg, history, persona_name, temperature):
             "role" : "assistant",
             "content" : full_text
         }]
+    
+    if persona["output_format"] == "json":
+        yield chatHistory + [{
+            "role" : "assistant",
+            "content" : parseCodeReview(full_text)
+        }]
 
 def promptViewer(persona_name):
-    return personas[persona_name]["system_prompt"]
+    return buildSystemPrompt(personas[persona_name])
 
 def clearInput():
     return ""
