@@ -28,7 +28,7 @@ techFewShot = [
 
 techExplainer = {
     "system_prompt" : "You are a concise, clear and jargon-free Technical Explainer.",
-    "few_shot_example" : techFewShot,
+    "few_shot_examples" : techFewShot,
     "output_format" : "text"
 }
 
@@ -55,7 +55,7 @@ debFewShot = [
 
 debCoach = {
     "system_prompt" : "You are a Debate Coach, who argues both sides of any question with balanced and structured arguments.",
-    "few_shot_example" : debFewShot,
+    "few_shot_examples" : debFewShot,
     "output_format" : "text"
 }
 
@@ -82,7 +82,7 @@ codeFewShot = [
 
 codeReview = {
     "system_prompt" : "You are a precise Code Reviewer with strict JSON output formatter, detecting issues, providing suggestions and rating the severity.",
-    "few_shot_example" : codeFewShot,
+    "few_shot_examples" : codeFewShot,
     "output_format" : "json"
 }
 
@@ -109,7 +109,7 @@ wriFewShot = [
 
 creativeWriter = {
     "system_prompt" : "You are a Creative Writer with other worldly imagination, expressive tone and vivid language.",
-    "few_shot_example" : wriFewShot,
+    "few_shot_examples" : wriFewShot,
     "output_format" : "text"
 }
 
@@ -122,9 +122,43 @@ personas = {
     "Creative Writer" : creativeWriter 
 }
 
-# Few Shot Injector function: Appends system prompt for a persona and
-# few shot examples with the user msg
-def fewShotInjector(persona, user_msg):
+# History normalizer: converts Gradio chat history into role/content messages
+def normalizeHistory(history):
+    normalizedHistory = []
+    
+    if not history:
+        return normalizedHistory
+    
+    for msg in history:
+        if isinstance(msg, dict):
+            normalizedHistory.append({
+                "role" : msg["role"],
+                "content" : msg["content"]
+            })
+        elif isinstance(msg, (list, tuple)) and len(msg) == 2:
+            userText, assistantText = msg
+            normalizedHistory.append({
+                "role" : "user",
+                "content" : userText
+            })
+            normalizedHistory.append({
+                "role" : "assistant",
+                "content" : assistantText
+            })
+        else:
+            role = getattr(msg, "role", None)
+            content = getattr(msg, "content", None)
+            
+            if role is not None and content is not None:
+                normalizedHistory.append({
+                    "role" : role,
+                    "content" : content
+                })
+    
+    return normalizedHistory
+
+# Few-shot injector: adds the system prompt, examples, history and current user message
+def fewShotInjector(persona, user_msg, history):
     conversation = []
     
     # Add the system prompt
@@ -133,13 +167,17 @@ def fewShotInjector(persona, user_msg):
         "content" : persona["system_prompt"]
     })
     
-    # Adds the Few Shot Exmaples
-    fewShots = persona["few_shot_example"]
+    # Add the few-shot examples
+    fewShots = persona["few_shot_examples"]
     
     for fewShot in fewShots:
         conversation.append(fewShot.copy())
+    
+    # Add the chat history
+    for msg in normalizeHistory(history):
+        conversation.append(msg.copy())
         
-    # Adds the user msg
+    # Add the user msg
     conversation.append({
         "role" : "user",
         "content" : user_msg
@@ -147,24 +185,88 @@ def fewShotInjector(persona, user_msg):
     
     return conversation
 
-def generator(persona, user_msg):
-    conversation = fewShotInjector(persona = persona, user_msg = user_msg)
+def generator(user_msg, history, persona_name, temperature):
+    history = normalizeHistory(history)
+    persona = personas[persona_name]
+    conversation = fewShotInjector(persona = persona, user_msg = user_msg, history = history)
     
     stream = client.chat.completions.create(
         model = "llama-3.3-70b-versatile",
         messages = conversation,
+        temperature = temperature,
         stream = True    
     )
     
+    chatHistory = history + [{
+        "role" : "user",
+        "content" : user_msg
+    }]
     full_text = ""
     
     for chunk in stream:
         delta = chunk.choices[0].delta.content or ""
+        
+        if not delta:
+            continue
+        
         full_text += delta
-        yield full_text
+        yield chatHistory + [{
+            "role" : "assistant",
+            "content" : full_text
+        }]
+
+def promptViewer(persona_name):
+    return personas[persona_name]["system_prompt"]
+
+def clearInput():
+    return ""
     
-# Gradio chat app (built-in)
-gr.ChatInterface(
-    fn = generator,
-    title = "PromptForge"
-).launch()
+# Gradio chat app (Blocks UI)
+with gr.Blocks(title = "PromptForge") as app:
+    gr.Markdown("# PromptForge")
+    
+    # Mode selection and model settings
+    with gr.Row():
+        modeDropdown = gr.Dropdown(
+            choices = list(personas.keys()),
+            value = "Technical Explainer",
+            label = "Mode"
+        )
+        
+        tempSlider = gr.Slider(
+            minimum = 0.0,
+            maximum = 1.5,
+            value = 0.7,
+            step = 0.1,
+            label = "Temperature"
+        )
+    
+    # Active system prompt
+    with gr.Accordion("Active System Prompt", open = False):
+        systemPromptBox = gr.Textbox(
+            value = personas["Technical Explainer"]["system_prompt"],
+            label = "System Prompt",
+            lines = 4,
+            interactive = False
+        )
+    
+    # Chat components
+    chatbot = gr.Chatbot(label = "Conversation")
+    userInput = gr.Textbox(label = "Your Message", placeholder = "Ask something here...")
+    
+    modeDropdown.change(
+        fn = promptViewer,
+        inputs = modeDropdown,
+        outputs = systemPromptBox
+    )
+    
+    userInput.submit(
+        fn = generator,
+        inputs = [userInput, chatbot, modeDropdown, tempSlider],
+        outputs = chatbot
+    ).then(
+        fn = clearInput,
+        outputs = userInput
+    )
+
+app.launch()
