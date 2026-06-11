@@ -1,8 +1,10 @@
 from groq import Groq
 import os
 from dotenv import load_dotenv
+import gradio as gr
 
 load_dotenv()
+client = Groq(api_key = os.getenv("GROQ_API_KEY"))
 
 # Technical Explainer Role
 techFewShot = [
@@ -25,7 +27,7 @@ techFewShot = [
 ]
 
 techExplainer = {
-    "system_prompt" : "You are a consice, clear and jargon-free Technical Explainer.",
+    "system_prompt" : "You are a concise, clear and jargon-free Technical Explainer.",
     "few_shot_example" : techFewShot,
     "output_format" : "text"
 }
@@ -120,7 +122,6 @@ personas = {
     "Creative Writer" : creativeWriter 
 }
 
-
 # Few Shot Injector function: Appends system prompt for a persona and
 # few shot examples with the user msg
 def fewShotInjector(persona, user_msg):
@@ -132,14 +133,38 @@ def fewShotInjector(persona, user_msg):
         "content" : persona["system_prompt"]
     })
     
+    # Adds the Few Shot Exmaples
     fewShots = persona["few_shot_example"]
     
     for fewShot in fewShots:
         conversation.append(fewShot.copy())
         
+    # Adds the user msg
     conversation.append({
         "role" : "user",
         "content" : user_msg
     })
     
     return conversation
+
+def generator(persona, user_msg):
+    conversation = fewShotInjector(persona = persona, user_msg = user_msg)
+    
+    stream = client.chat.completions.create(
+        model = "llama-3.3-70b-versatile",
+        messages = conversation,
+        stream = True    
+    )
+    
+    full_text = ""
+    
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content or ""
+        full_text += delta
+        yield full_text
+    
+# Gradio chat app (built-in)
+gr.ChatInterface(
+    fn = generator,
+    title = "PromptForge"
+).launch()
